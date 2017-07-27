@@ -2,46 +2,35 @@ from datetime import datetime
 import os, sys
 import praw
 import time
+import pymssql
 import requests
-import psycopg2
-import COC_oauth as oauth
-import ctypes
 import ConfigParser
-import logging, logging.config
 
-SUBREDDIT = 'RedditClanSystem'
+Config = ConfigParser.ConfigParser()
+Config.read('/home/pi/rcs/sqlconfig.ini')
+DatabaseName = Config.get('SectionOne', 'database')
+DB_USERNAME = Config.get('SectionOne', 'username')
+DB_PASSWORD = Config.get('SectionOne', 'password')
+DB_HOST = Config.get('SectionOne', 'server')
+API_KEY = Config.get('SectionTwo', 'apikey')
+
+SUBREDDIT = 'coc_oak'
 APP_NAME = "Clash of Clans Clan Wiki Page Updater"
 BotName = 'CoC Bot'
 APP_VERS = '1.2.0'
 LAST_REFRESH = 0 # Last time the oAth Refresh Key was grabbed
 SleepTime = 10800 # = 3 hours
-APIURL = 'https://set7z18fgf.execute-api.us-east-1.amazonaws.com/prod/?route=getClanDetails&clanTag=%23'
+API_URL = 'https://api.clashofclans.com/v1/clans/%23'
 WIKI_PAGE = 'official_reddit_clan_system'
 PAGE_CONTENT = ''
-
-
-Config = ConfigParser.ConfigParser()
-Config.read("/opt/skynet/Configs/config.ini")
-DatabaseName = Config.get('Database', 'DatabaseName')
-DB_USERNAME = Config.get('Database', 'Username')
-DB_PASSWORD = Config.get('Database', 'Password')
-DB_HOST = 'localhost'
-
-# Setup logging
-LoggerConfigLocation = '/opt/skynet/Configs/_Logger_Config.ini'
-logging.config.fileConfig(LoggerConfigLocation, defaults={'BotName': BotName, 'APP_VERS': APP_VERS})
-ExtraParameters = {'BotName': BotName, 'APP_VERS': APP_VERS}
-logger = logging.LoggerAdapter(logging.getLogger(BotName+' v'+APP_VERS), extra=ExtraParameters)
-	
+Headers = {'Accept':'application/json','Authorization':'Bearer ' + API_KEY}
 
 def start():
 	global r
 	try:
 		r = oauth.login()
-		logger.info('//****** Started {} Version {} ******\\\\'.format(APP_NAME, APP_VERS), extra=ExtraParameters)
 		return True
 	except:
-		logger.critical('Failed to Login')
 		sys.exit()
 
 def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
@@ -157,8 +146,6 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 		end = content.index(end_marker) + len(end_marker)
 		content = content.replace(content[start:end], "{}{}{}".format(start_marker, PAGE_CONTENT, end_marker))
 
-		logger.debug('Updated WR')
-
 		# Competitive Clans
 
 		PAGE_CONTENT = ''
@@ -211,8 +198,6 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 		start = content.index(start_marker)
 		end = content.index(end_marker) + len(end_marker)
 		content = content.replace(content[start:end], "{}{}{}".format(start_marker, PAGE_CONTENT, end_marker))
-
-		logger.debug('Updated CC')
 
 		# War Clans
 		
@@ -267,17 +252,14 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 		end = content.index(end_marker) + len(end_marker)
 		content = content.replace(content[start:end], "{}{}{}".format(start_marker, PAGE_CONTENT, end_marker))
 
-		logger.debug('Updated WC')
-
 		try:
 			r.edit_wiki_page(SUBREDDIT, WIKI_PAGE, content, reason="Updating Clan Tracking Wikipage")
-			logger.info("Wiki page update for {} SUCCESS".format(SUBREDDIT), extra=ExtraParameters)
 		except Exception:
-			logger.exception("Wiki page update for {} FAILED".format(SUBREDDIT), exc_info=True, extra=ExtraParameters)
+			print("Wiki page update for {} FAILED".format(SUBREDDIT), exc_info=True, extra=ExtraParameters)
 
 
 	except Exception:
-		logger.exception("General Update Wiki Page Error", exc_info=True, extra=ExtraParameters)
+		print("General Update Wiki Page Error", exc_info=True, extra=ExtraParameters)
 
 def UpdateDatabase():
 	try:
@@ -287,7 +269,7 @@ def UpdateDatabase():
 		for item in fetched:
 			clantag = item[0]
 
-			clandata = requests.get(APIURL + clantag).json()
+			clandata = requests.get(API_URL + clantag).json()
 
 			clanname = clandata['clanDetails']['results']['name']
 			typestatus = clandata['clanDetails']['results']['type']
@@ -297,9 +279,8 @@ def UpdateDatabase():
 
 			cur.execute('UPDATE public.coc_data SET clanname=(%s), typestatus=(%s), warfreq=(%s), warwins=(%s), members=(%s) WHERE clantag=(%s)', (clanname, typestatus, warfreq, warwins, members, clantag))
 			
-			logger.debug("Updated {} - {} in the DB".format(clanname, clantag))
 	except Exception:
-		logger.exception("Error updating Database | DATA | ClanTag: {}".format(clantag), exc_info=True, extra=ExtraParameters)
+		print("Error updating Database | DATA | ClanTag: {}".format(clantag), exc_info=True, extra=ExtraParameters)
 
 def Clean_Database():
 	try:
@@ -314,22 +295,17 @@ def Clean_Database():
 				fixedclantag = clantag.replace('#', '')
 
 				cur.execute('UPDATE public.coc_data SET clantag=(%s) WHERE clantag=(%s)', (fixedclantag, clantag))
-				
-				logger.info("Cleaned {} in the DB".format(fixedclantag), extra=ExtraParameters)
+
 	except Exception:
-		logger.exception("Error Cleaning Database | DATA | ClanTag: {}".format(clantag), exc_info=True, extra=ExtraParameters)
+		print("Error Cleaning Database | DATA | ClanTag: {}".format(clantag), exc_info=True, extra=ExtraParameters)
 
 # Main running of the code
 if __name__ == '__main__':
 
-	canStart = start()
-
-	con = psycopg2.connect(host=DB_HOST, dbname=DatabaseName, user=DB_USERNAME, password=DB_PASSWORD)
-	con.autocommit = True
+	con = pymssql.connect(server=DB_HOST, user=DB_USERNAME, password=DB_PASSWORD, database=DatabaseName, autocommit=True)
 	cur = con.cursor()
-	logger.debug('Connected to Database')
 	
-	while canStart:
+	while True:
 
 		try:
 
@@ -337,29 +313,28 @@ if __name__ == '__main__':
 			try:
 				Clean_Database()
 			except:
-				logger.exception("Failed to Clean Datebase", exc_info=True, extra=ExtraParameters)
+				print("Failed to Clean Datebase", exc_info=True, extra=ExtraParameters)
 
 			# Update Database from the API with new Clan Data
 			try:
 				UpdateDatabase()
 			except Exception:
-				logger.exception("Failed to update Datebase", exc_info=True, extra=ExtraParameters)
+				print("Failed to update Datebase", exc_info=True, extra=ExtraParameters)
 				pass
 
 			# Update the wiki page with the new data
 			try:
 				UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT)
 			except Exception:
-				logger.exception("Failed to update Wiki Page", exc_info=True, extra=ExtraParameters)
+				print("Failed to update Wiki Page", exc_info=True, extra=ExtraParameters)
 				pass
 
 		except KeyboardInterrupt:
-			logger.warning('Caught KeyboardInterrupt')
+			print('Caught KeyboardInterrupt')
 			sys.exit()
 			
 		except Exception:
-			logger.critical('General Exception - sleeping 2 min', exc_info=True, extra=ExtraParameters)
+			print('General Exception - sleeping 2 min', exc_info=True, extra=ExtraParameters)
 			time.sleep(120)
-
-		#logger.debug("Sleeping...")
+			
 		time.sleep(SleepTime)
