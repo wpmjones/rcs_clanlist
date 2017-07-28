@@ -1,7 +1,4 @@
-from datetime import datetime
-import os, sys
 import praw
-import time
 import pymssql
 import requests
 import ConfigParser
@@ -15,11 +12,6 @@ DB_HOST = Config.get('SectionOne', 'server')
 API_KEY = Config.get('SectionTwo', 'apikey')
 
 SUBREDDIT = 'coc_oak'
-APP_NAME = "Clash of Clans Clan Wiki Page Updater"
-BotName = 'CoC Bot'
-APP_VERS = '1.2.0'
-LAST_REFRESH = 0 # Last time the oAth Refresh Key was grabbed
-SleepTime = 10800 # = 3 hours
 API_URL = 'https://api.clashofclans.com/v1/clans/%23'
 WIKI_PAGE = 'official_reddit_clan_system'
 PAGE_CONTENT = ''
