@@ -25,14 +25,6 @@ WIKI_PAGE = 'official_reddit_clan_system'
 PAGE_CONTENT = ''
 Headers = {'Accept':'application/json','Authorization':'Bearer ' + API_KEY}
 
-def start():
-	global r
-	try:
-		r = oauth.login()
-		return True
-	except:
-		sys.exit()
-
 def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 
 	try:
@@ -41,50 +33,31 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 
 		# Clans with No Requirements
 		PAGE_CONTENT = ''
-		start_marker = "[](#NRstart)"
-		end_marker = "[](#NRend)"
+		start_marker = "[](#compStart)"
+		end_marker = "[](#compEnd)"
 
 		# Build the table
-		cur.execute("SELECT * FROM public.coc_data WHERE classification='NR'")
+		cur.execute("SELECT clanName, subReddit, clanTag, clanLevel, members, warFreq, socMedia, notes, feeder FROM rcs_data WHERE classification='comp'")
 		fetched = cur.fetchall()
 
-		PAGE_CONTENT += 'Clan&nbsp;Name | Total&nbsp;members | Clan&nbsp;Tag | Leader&nbsp;Name | Requirements | Archer&nbsp;Level | War&nbsp;Frequency | Status | War&nbsp;Wins\n'
-		PAGE_CONTENT += '-|-|-|-|-|-|-|-|-'
+		PAGE_CONTENT += 'Clan&nbsp;Name | Clan&nbsp;Tag | Lvl | Members | War&nbsp;Frequency | Social&nbsp;Media | Notes | Feeder/Other\n'
+		PAGE_CONTENT += '-|-|-|-|-|-|-|-'
 
 		for item in fetched:
-			# Set proper Status Text
-			if str(item[7]) == 'inviteOnly':
-				StatusText = 'Invite Only'
-			elif str(item[7]) == 'closed':
-				StatusText = 'Closed'
 
 			# Set proper War Frequenct Text
-			if str(item[6]) == 'moreThanOncePerWeek':
+			if str(item[5]) == 'moreThanOncePerWeek':
 				WarFreqText = '2+ / Week'
-			elif str(item[6]) == 'always':
+			elif str(item[5]) == 'always':
 				WarFreqText = 'Always'
-			elif str(item[6]) == 'oncePerWeek':
+			elif str(item[5]) == 'oncePerWeek':
 				WarFreqText = '1 / Week'
-			elif str(item[6]) == 'unknown':
+			elif str(item[5]) == 'unknown':
 				WarFreqText = 'Unknown'
-			elif str(item[6]) == 'never':
-				WarFreqText = 'Never'
+			elif str(item[5]) == 'never':
+				WarFreqText = 'Rarely'5
 
-			# Set proper Requirements Text
-			RequirementsText = ''
-			if str(item[3]) == 'None':
-				RequirementsText = ''
-			else:
-				RequirementsText = str(item[3])
-
-			# Set proper Archer Level Text
-			ArcherText = ''
-			if str(item[4]) == 'None':
-				ArcherText = ''
-			else:
-				ArcherText = str(item[4])
-
-			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[5]) + ') | ' + str(item[9]) + '/50 | [#' + str(item[1]) + '](https://clashofclans.com/clans/clan?clanTag=' + str(item[1]) + ') | /u/' + item[2] + ' | ' + RequirementsText + ' | ' + ArcherText + ' | ' + WarFreqText + ' | ' + StatusText + ' | ' + str(item[8])
+			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[1]) + ') | [#' + str(item[2]) + '](https://www.clashofstats.com/clans/' + item[0].replace(' ', '-') + '-' + str(item[2]) + '/members) | ' + WarFreqText + ' | ' + item[6] + ' | ' + item[7] + ' | ' + item[8]
 
 		# Locate start and end markers
 		start = content.index(start_marker)
@@ -263,24 +236,31 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 
 def UpdateDatabase():
 	try:
-		cur.execute('SELECT clantag FROM public.coc_data')
+		cur.execute('SELECT clantag FROM rcs_data')
 		fetched = cur.fetchall()
 
 		for item in fetched:
-			clantag = item[0]
+			clanTag = item[0]
 
 			clandata = requests.get(API_URL + clantag).json()
 
-			clanname = clandata['clanDetails']['results']['name']
-			typestatus = clandata['clanDetails']['results']['type']
-			warfreq = clandata['clanDetails']['results']['warFrequency']
-			warwins = clandata['clanDetails']['results']['warWins']
-			members = clandata['clanDetails']['results']['members']
+			clanName = clandata['name']
+			clanLevel = clandata['clanLevel']
+			warFreq = clandata['warFrequency']
+			members = clandata['members']
+			
+			mem = json.loads(clandata['memberList'])
+			for role in mem:
+				if role == 'leader':
+					clanLeader = mem['name']
 
-			cur.execute('UPDATE public.coc_data SET clanname=(%s), typestatus=(%s), warfreq=(%s), warwins=(%s), members=(%s) WHERE clantag=(%s)', (clanname, typestatus, warfreq, warwins, members, clantag))
+			# compare clan leader and report to council-chat if different
+			# compare clan level and report to rcs-glocal-chat if different
+					
+			cur.execute('UPDATE rcs_data SET clanname = %s, clanLevel = %d, clanLeader = %s, members = %d, warFreq=(%s) WHERE clantag=(%s)', (clanName, clanLevel, clanLeader, members, warFreq, clanTag))
 			
 	except Exception:
-		print("Error updating Database | DATA | ClanTag: {}".format(clantag), exc_info=True, extra=ExtraParameters)
+		print("Error updating Database | DATA | ClanTag: {}".format(clantag))
 
 def Clean_Database():
 	try:
@@ -294,10 +274,10 @@ def Clean_Database():
 			if '#' in clantag:
 				fixedclantag = clantag.replace('#', '')
 
-				cur.execute('UPDATE public.coc_data SET clantag=(%s) WHERE clantag=(%s)', (fixedclantag, clantag))
+				cur.execute('UPDATE rcs_data SET clantag = %s WHERE clantag = %s', (fixedclantag, clantag))
 
 	except Exception:
-		print("Error Cleaning Database | DATA | ClanTag: {}".format(clantag), exc_info=True, extra=ExtraParameters)
+		print("Error Cleaning Database | DATA | ClanTag: {}".format(clantag))
 
 # Main running of the code
 if __name__ == '__main__':
@@ -305,36 +285,30 @@ if __name__ == '__main__':
 	con = pymssql.connect(server=DB_HOST, user=DB_USERNAME, password=DB_PASSWORD, database=DatabaseName, autocommit=True)
 	cur = con.cursor()
 	
-	while True:
-
+	try:
+		# Clean the DB and remove any X in the clantag
 		try:
+			Clean_Database()
+		except:
+			print('Failed to clean datebase')
 
-			# Clean the DB and remove any X in the clantag
-			try:
-				Clean_Database()
-			except:
-				print("Failed to Clean Datebase", exc_info=True, extra=ExtraParameters)
-
-			# Update Database from the API with new Clan Data
-			try:
-				UpdateDatabase()
-			except Exception:
-				print("Failed to update Datebase", exc_info=True, extra=ExtraParameters)
-				pass
-
-			# Update the wiki page with the new data
-			try:
-				UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT)
-			except Exception:
-				print("Failed to update Wiki Page", exc_info=True, extra=ExtraParameters)
-				pass
-
-		except KeyboardInterrupt:
-			print('Caught KeyboardInterrupt')
-			sys.exit()
-			
+		# Update Database from the API with new Clan Data
+		try:
+			UpdateDatabase()
 		except Exception:
-			print('General Exception - sleeping 2 min', exc_info=True, extra=ExtraParameters)
-			time.sleep(120)
+			print('Failed to update datebase')
+			pass
+
+		# Update the wiki page with the new data
+		try:
+			UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT)
+		except Exception:
+			print('Failed to update Wiki Page')
+			pass
+
+	except KeyboardInterrupt:
+		print('Caught KeyboardInterrupt')
+		sys.exit()
 			
-		time.sleep(SleepTime)
+	except Exception:
+		print('General Exception')
