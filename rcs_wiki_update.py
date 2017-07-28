@@ -31,13 +31,13 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 		# Get existing wiki page data
 		content = r.get_wiki_page(SUBREDDIT, WIKI_PAGE).content_md
 
-		# Clans with No Requirements
+		# Competitive Clans
 		PAGE_CONTENT = ''
-		start_marker = "[](#compStart)"
-		end_marker = "[](#compEnd)"
+		start_marker = '[](#compStart)'
+		end_marker = '[](#compEnd)'
 
 		# Build the table
-		cur.execute("SELECT clanName, subReddit, clanTag, clanLevel, members, warFreq, socMedia, notes, feeder FROM rcs_data WHERE classification='comp'")
+		cur.execute("SELECT clanName, subReddit, clanTag, clanLevel, members, warFreq, socMedia, notes, feeder FROM rcs_data WHERE classification='comp' ORDER BY clanName")
 		fetched = cur.fetchall()
 
 		PAGE_CONTENT += 'Clan&nbsp;Name | Clan&nbsp;Tag | Lvl | Members | War&nbsp;Frequency | Social&nbsp;Media | Notes | Feeder/Other\n'
@@ -55,9 +55,27 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 			elif str(item[5]) == 'unknown':
 				WarFreqText = 'Unknown'
 			elif str(item[5]) == 'never':
-				WarFreqText = 'Rarely'5
+				WarFreqText = 'Rarely'
 
-			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[1]) + ') | [#' + str(item[2]) + '](https://www.clashofstats.com/clans/' + item[0].replace(' ', '-') + '-' + str(item[2]) + '/members) | ' + WarFreqText + ' | ' + item[6] + ' | ' + item[7] + ' | ' + item[8]
+			# Set proper Social Media
+			if item[6] == 'None':
+				socMedia = ''
+			else:
+				socMedia = item[6]
+
+			# Set proper Notes
+			if item[7] == 'None':
+				clanNotes = ''
+			else:
+				clanNotes = item[7]
+				
+			# Set proper Feeder info
+			if item[8] == 'None':
+				feeder = ''
+			else:
+				feeder = '[See Below](https://www.reddit.com/r/RedditClanSystem/wiki/rcs_list_test#wiki_feeders.2Fassociated.2Fprospective)'
+
+			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[1]) + ') | [#' + str(item[2]) + '](https://www.clashofstats.com/clans/' + item[0].replace(' ', '-') + '-' + str(item[2]) + '/members) | ' + ' | ' + str(item[3]) + ' | ' + str(item[4]) + '/50 | ' + WarFreqText + ' | ' + socMedia + ' | ' + clanNotes + ' | ' + feeder
 
 		# Locate start and end markers
 		start = content.index(start_marker)
@@ -65,160 +83,156 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 		content = content.replace(content[start:end], "{}{}{}".format(start_marker, PAGE_CONTENT, end_marker))
 
 
-		# Clans With Requirements
+		# Social Clans
 
 		PAGE_CONTENT = ''
-		start_marker = "[](#WRstart)"
-		end_marker = "[](#WRend)"
+		start_marker = '[](#socStart)'
+		end_marker = '[](#socEnd)'
 
 		# Build the table
-		cur.execute("SELECT * FROM public.coc_data WHERE classification='WR'")
+		cur.execute("SELECT clanName, subReddit, clanTag, clanLevel, members, warFreq, socMedia, notes, feeder FROM rcs_data WHERE classification='social' ORDER BY clanName")
 		fetched = cur.fetchall()
 
 		PAGE_CONTENT += 'Clan&nbsp;Name | Total&nbsp;members | Clan&nbsp;Tag | Leader&nbsp;Name | Requirements | Archer&nbsp;Level | War&nbsp;Frequency | Status | War&nbsp;Wins\n'
 		PAGE_CONTENT += '-|-|-|-|-|-|-|-|-'
 
 		for item in fetched:
-			# Set proper Status Text
-			if str(item[7]) == 'inviteOnly':
-				StatusText = 'Invite Only'
-			elif str(item[7]) == 'closed':
-				StatusText = 'Closed'
 
 			# Set proper War Frequenct Text
-			if str(item[6]) == 'moreThanOncePerWeek':
+			if str(item[5]) == 'moreThanOncePerWeek':
 				WarFreqText = '2+ / Week'
-			elif str(item[6]) == 'always':
+			elif str(item[5]) == 'always':
 				WarFreqText = 'Always'
-			elif str(item[6]) == 'oncePerWeek':
+			elif str(item[5]) == 'oncePerWeek':
 				WarFreqText = '1 / Week'
-			elif str(item[6]) == 'unknown':
+			elif str(item[5]) == 'unknown':
 				WarFreqText = 'Unknown'
-			elif str(item[6]) == 'never':
-				WarFreqText = 'Never'
+			elif str(item[5]) == 'never':
+				WarFreqText = 'Rarely'
 
-			# Set proper Requirements Text
-			RequirementsText = ''
-			if str(item[3]) == 'None':
-				RequirementsText = ''
+			# Set proper Social Media
+			if item[6] == 'None':
+				socMedia = ''
 			else:
-				RequirementsText = str(item[3])
+				socMedia = item[6]
 
-			# Set proper Archer Level Text
-			ArcherText = ''
-			if str(item[4]) == 'None':
-				ArcherText = ''
+			# Set proper Notes
+			if item[7] == 'None':
+				clanNotes = ''
 			else:
-				ArcherText = str(item[4])
+				clanNotes = item[7]
+				
+			# Set proper Feeder info
+			if item[8] == 'None':
+				feeder = ''
+			else:
+				feeder = '[See Below](https://www.reddit.com/r/RedditClanSystem/wiki/rcs_list_test#wiki_feeders.2Fassociated.2Fprospective)'
 
-			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[5]) + ') | ' + str(item[9]) + '/50 | [#' + str(item[1]) + '](https://clashofclans.com/clans/clan?clanTag=' + str(item[1]) + ') | /u/' + item[2] + ' | ' + RequirementsText + ' | ' + ArcherText + ' | ' + WarFreqText + ' | ' + StatusText + ' | ' + str(item[8])
-
-
+			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[1]) + ') | [#' + str(item[2]) + '](https://www.clashofstats.com/clans/' + item[0].replace(' ', '-') + '-' + str(item[2]) + '/members) | ' + ' | ' + str(item[3]) + ' | ' + str(item[4]) + '/50 | ' + WarFreqText + ' | ' + socMedia + ' | ' + clanNotes + ' | ' + feeder
+				
 		# Locate start and end markers
 		start = content.index(start_marker)
 		end = content.index(end_marker) + len(end_marker)
 		content = content.replace(content[start:end], "{}{}{}".format(start_marker, PAGE_CONTENT, end_marker))
 
-		# Competitive Clans
+		# General Clans
 
 		PAGE_CONTENT = ''
-		start_marker = "[](#CCstart)"
-		end_marker = "[](#CCend)"
+		start_marker = '[](#genStart)'
+		end_marker = '[](#genEnd)'
 
 		# Build the table
-		cur.execute("SELECT * FROM public.coc_data WHERE classification='CC'")
+		cur.execute("SELECT clanName, subReddit, clanTag, clanLevel, members, warFreq, socMedia, notes, feeder FROM rcs_data WHERE classification='gen' ORDER BY clanName")
 		fetched = cur.fetchall()
 
 		PAGE_CONTENT += 'Clan&nbsp;Name | Total&nbsp;members | Clan&nbsp;Tag | Leader&nbsp;Name | Requirements | Archer&nbsp;Level | War&nbsp;Frequency | Status | War&nbsp;Wins\n'
 		PAGE_CONTENT += '-|-|-|-|-|-|-|-|-'
 
 		for item in fetched:
-			# Set proper Status Text
-			if str(item[7]) == 'inviteOnly':
-				StatusText = 'Invite Only'
-			elif str(item[7]) == 'closed':
-				StatusText = 'Closed'
 
 			# Set proper War Frequenct Text
-			if str(item[6]) == 'moreThanOncePerWeek':
+			if str(item[5]) == 'moreThanOncePerWeek':
 				WarFreqText = '2+ / Week'
-			elif str(item[6]) == 'always':
+			elif str(item[5]) == 'always':
 				WarFreqText = 'Always'
-			elif str(item[6]) == 'oncePerWeek':
+			elif str(item[5]) == 'oncePerWeek':
 				WarFreqText = '1 / Week'
-			elif str(item[6]) == 'unknown':
+			elif str(item[5]) == 'unknown':
 				WarFreqText = 'Unknown'
-			elif str(item[6]) == 'never':
-				WarFreqText = 'Never'
+			elif str(item[5]) == 'never':
+				WarFreqText = 'Rarely'
 
-			# Set proper Requirements Text
-			RequirementsText = ''
-			if str(item[3]) == 'None':
-				RequirementsText = ''
+			# Set proper Social Media
+			if item[6] == 'None':
+				socMedia = ''
 			else:
-				RequirementsText = str(item[3])
+				socMedia = item[6]
 
-			# Set proper Archer Level Text
-			ArcherText = ''
-			if str(item[4]) == 'None':
-				ArcherText = ''
+			# Set proper Notes
+			if item[7] == 'None':
+				clanNotes = ''
 			else:
-				ArcherText = str(item[4])
+				clanNotes = item[7]
+				
+			# Set proper Feeder info
+			if item[8] == 'None':
+				feeder = ''
+			else:
+				feeder = '[See Below](https://www.reddit.com/r/RedditClanSystem/wiki/rcs_list_test#wiki_feeders.2Fassociated.2Fprospective)'
 
-			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[5]) + ') | ' + str(item[9]) + '/50 | [#' + str(item[1]) + '](https://clashofclans.com/clans/clan?clanTag=' + str(item[1]) + ') | /u/' + item[2] + ' | ' + RequirementsText + ' | ' + ArcherText + ' | ' + WarFreqText + ' | ' + StatusText + ' | ' + str(item[8])
+			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[1]) + ') | [#' + str(item[2]) + '](https://www.clashofstats.com/clans/' + item[0].replace(' ', '-') + '-' + str(item[2]) + '/members) | ' + ' | ' + str(item[3]) + ' | ' + str(item[4]) + '/50 | ' + WarFreqText + ' | ' + socMedia + ' | ' + clanNotes + ' | ' + feeder
 
 		# Locate start and end markers
 		start = content.index(start_marker)
 		end = content.index(end_marker) + len(end_marker)
 		content = content.replace(content[start:end], "{}{}{}".format(start_marker, PAGE_CONTENT, end_marker))
 
-		# War Clans
+		# War Farming Clans
 		
 		PAGE_CONTENT = ''
-		start_marker = "[](#WCstart)"
-		end_marker = "[](#WCend)"
+		start_marker = '[](#wfStart)'
+		end_marker = '[](#wfEnd)'
 
 		# Build the table
-		cur.execute("SELECT * FROM public.coc_data WHERE classification='WC'")
+		cur.execute("SELECT clanName, subReddit, clanTag, clanLevel, members, warFreq, socMedia, notes, feeder FROM rcs_data WHERE classification='warFarm' ORDER BY clanName")
 		fetched = cur.fetchall()
 
 		PAGE_CONTENT += 'Clan&nbsp;Name | Total&nbsp;members | Clan&nbsp;Tag | Leader&nbsp;Name | Requirements | Archer&nbsp;Level | War&nbsp;Frequency | Status | War&nbsp;Wins\n'
 		PAGE_CONTENT += '-|-|-|-|-|-|-|-|-'
 
 		for item in fetched:
-			# Set proper Status Text
-			if str(item[7]) == 'inviteOnly':
-				StatusText = 'Invite Only'
-			elif str(item[7]) == 'closed':
-				StatusText = 'Closed'
 
 			# Set proper War Frequenct Text
-			if str(item[6]) == 'moreThanOncePerWeek':
+			if str(item[5]) == 'moreThanOncePerWeek':
 				WarFreqText = '2+ / Week'
-			elif str(item[6]) == 'always':
+			elif str(item[5]) == 'always':
 				WarFreqText = 'Always'
-			elif str(item[6]) == 'oncePerWeek':
+			elif str(item[5]) == 'oncePerWeek':
 				WarFreqText = '1 / Week'
-			elif str(item[6]) == 'unknown':
+			elif str(item[5]) == 'unknown':
 				WarFreqText = 'Unknown'
-			elif str(item[6]) == 'never':
-				WarFreqText = 'Never'
+			elif str(item[5]) == 'never':
+				WarFreqText = 'Rarely'
 
-			# Set proper Requirements Text
-			RequirementsText = ''
-			if str(item[3]) == 'None':
-				RequirementsText = ''
+			# Set proper Social Media
+			if item[6] == 'None':
+				socMedia = ''
 			else:
-				RequirementsText = str(item[3])
+				socMedia = item[6]
 
-			# Set proper Archer Level Text
-			ArcherText = ''
-			if str(item[4]) == 'None':
-				ArcherText = ''
+			# Set proper Notes
+			if item[7] == 'None':
+				clanNotes = ''
 			else:
-				ArcherText = str(item[4])
+				clanNotes = item[7]
+				
+			# Set proper Feeder info
+			if item[8] == 'None':
+				feeder = ''
+			else:
+				feeder = '[See Below](https://www.reddit.com/r/RedditClanSystem/wiki/rcs_list_test#wiki_feeders.2Fassociated.2Fprospective)'
 
-			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[5]) + ') | ' + str(item[9]) + '/50 | [#' + str(item[1]) + '](https://clashofclans.com/clans/clan?clanTag=' + str(item[1]) + ') | /u/' + item[2] + ' | ' + RequirementsText + ' | ' + ArcherText + ' | ' + WarFreqText + ' | ' + StatusText + ' | ' + str(item[8])
+			PAGE_CONTENT += '\n[' + item[0].replace(' ', '&nbsp;') + '](/r/' + str(item[1]) + ') | [#' + str(item[2]) + '](https://www.clashofstats.com/clans/' + item[0].replace(' ', '-') + '-' + str(item[2]) + '/members) | ' + ' | ' + str(item[3]) + ' | ' + str(item[4]) + '/50 | ' + WarFreqText + ' | ' + socMedia + ' | ' + clanNotes + ' | ' + feeder
 
 		# Locate start and end markers
 		start = content.index(start_marker)
@@ -228,11 +242,48 @@ def UpdateWikiPage(SUBREDDIT, WIKI_PAGE, PAGE_CONTENT):
 		try:
 			r.edit_wiki_page(SUBREDDIT, WIKI_PAGE, content, reason="Updating Clan Tracking Wikipage")
 		except Exception:
-			print("Wiki page update for {} FAILED".format(SUBREDDIT), exc_info=True, extra=ExtraParameters)
+			print("Wiki page update for {} FAILED".format(SUBREDDIT))
+			
+		# Feeder Clans
+		
+		PAGE_CONTENT = ''
+		start_marker = '[](#feederStart)'
+		end_marker = '[](#feederEnd)'
+
+		# Build the table
+		# I am cheating and using feeder for Home Clan, socMedia for Type, and clanLeader for contact
+		cur.execute("SELECT feeder, clanName, clanTag, clanLevel, socMedia, members, clanLeader, leaderReddit, notes FROM rcs_data WHERE classification='feeder' ORDER BY feeder")
+		fetched = cur.fetchall()
+
+		PAGE_CONTENT += 'Home&nbsp;Clan | Clan&nbsp;Name | Clan&nbsp;Tag | Lvl | Type | Members | Contact | Notes\n'
+		PAGE_CONTENT += '-|-|-|-|-|-|-|-'
+
+		for item in fetched:
+			
+			# Set Contact and Reddit username
+			contact = '(' + item[6] + ')[/u/' + item[7]
+
+			# Set proper Notes
+			if item[8] == 'None':
+				clanNotes = ''
+			else:
+				clanNotes = item[8]
+
+			PAGE_CONTENT += item[0].replace(' ', '&nbsp;') | item[1].replace(' ', '&nbsp;') + ' | [#' + str(item[2]) + '](https://www.clashofstats.com/clans/' + item[1].replace(' ', '-') + '-' + str(item[2]) + '/members) | ' + str(item[3]) + ' | ' + item[4] + ' | ' + str(item[5]) + '/50 | ' + notes
+
+		# Locate start and end markers
+		start = content.index(start_marker)
+		end = content.index(end_marker) + len(end_marker)
+		content = content.replace(content[start:end], "{}{}{}".format(start_marker, PAGE_CONTENT, end_marker))
+
+		try:
+			r.edit_wiki_page(SUBREDDIT, WIKI_PAGE, content, reason="Updating Clan Tracking Wikipage")
+		except Exception:
+			print("Wiki page update for {} FAILED".format(SUBREDDIT))			
 
 
 	except Exception:
-		print("General Update Wiki Page Error", exc_info=True, extra=ExtraParameters)
+		print('General Update Wiki Page Error')
 
 def UpdateDatabase():
 	try:
